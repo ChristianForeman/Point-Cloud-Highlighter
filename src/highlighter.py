@@ -24,7 +24,7 @@ class Pc:
 
         # Set default values
         self.CENTER = np.array([0, 0, 0])
-        self.RADIUS = 1
+        self.RADIUS = 0.33
 
         # Highlight the starting area
         # self.highlight()

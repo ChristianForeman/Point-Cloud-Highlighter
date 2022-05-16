@@ -6,9 +6,16 @@ import argparse
 
 
 def main():
-    # TODO: Add argparse for the name of the bag, maybe make a bash script to run everything?
     rospy.init_node("read_bag")
-    bag = rosbag.Bag("plant_test1.bag")
+    # TODO: Add argparse for the name of the bag, maybe make a bash script to run everything?
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename')
+    args = parser.parse_args()
+
+    print(args.filename)
+
+    bag = rosbag.Bag(args.filename)
     bag_msgs = []
     for topic, msg, t in bag.read_messages(topics=['/camera/depth/color/points']):
         bag_msgs.append(msg)
