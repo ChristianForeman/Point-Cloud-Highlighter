@@ -162,9 +162,9 @@ class Highlighter:
         self.sphere_marker.scale.x = self.radius * 2
         self.sphere_marker.scale.y = self.radius * 2
         self.sphere_marker.scale.z = self.radius * 2
-        self.sphere_marker.color.r = 1.0
-        self.sphere_marker.color.g = 1.0
-        self.sphere_marker.color.b = 0.0
+        self.sphere_marker.color.r = 0.0
+        self.sphere_marker.color.g = 0.5
+        self.sphere_marker.color.b = 0.5
         self.sphere_marker.color.a = 0.3
 
         self.sphere_pub.publish(self.sphere_marker)
@@ -211,7 +211,7 @@ class Highlighter:
         self.highlight()
 
 
-if __name__ == "__main__":
+def main():
     rospy.init_node("pc_selector")
 
     parser = argparse.ArgumentParser()
@@ -230,3 +230,7 @@ if __name__ == "__main__":
     gui = TrajectoryPlaybackGUI(args.radius, args.bag_filename)
     gui.show()
     app.exec()
+
+
+if __name__ == "__main__":
+    main()
