@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import time
+
 import rospy
 import sensor_msgs.msg
 import utils
@@ -12,49 +14,41 @@ import argparse
 import sys
 
 
-class Pc:
+class Highlighter:
     def __init__(self, frame, default_radius):
         self.my_frame = frame
 
-        self.sel_pub = get_connected_publisher("selected", PointCloud2, queue_size=10)
+        self.sel_pub = rospy.Publisher("/selected_pc", PointCloud2, queue_size=10)
 
-        # Read in the point cloud TODO Fix declaration!
-        self.points = np.array([])
-
-        # Publish the initial points of the cloud
-        msg = utils.points_to_pc2_msg(self.points, self.my_frame)
+        self.pc2_msg = PointCloud2()
 
         # Set default values
-        self.CENTER = np.array([0, 0, 0])
+        self.center = np.array([0, 0, 0])
         self.RADIUS = default_radius
 
         # Highlight the starting area
         # self.highlight()
 
     def highlight(self):
-        sel_pc = []
-        for point in sensor_msgs.point_cloud2.read_points(self.points):
-            cur_point = np.array(point[0:3])
-            dist = math.sqrt(np.sum((cur_point - self.CENTER) ** 2))
-
-            if dist < self.RADIUS:
-                sel_pc.append(cur_point)
-        # If no points in the range, vstack throws an error
-        if len(sel_pc) > 0:
-            sel_pc = np.vstack(sel_pc)
+        t0 = time.perf_counter()
+        points = np.array(list(sensor_msgs.point_cloud2.read_points(self.pc2_msg)))[:, :3]
+        dist = np.linalg.norm(points - self.center, axis=-1)
+        sel_indices = np.argwhere(dist < self.RADIUS).squeeze(1)
+        sel_pc = points[sel_indices]
+        print(time.perf_counter() - t0)
 
         msg = utils.points_to_pc2_msg(sel_pc, self.my_frame)
         self.sel_pub.publish(msg)
 
     def run(self):
-        rospy.Subscriber("/current_frame", PointCloud2, self.handle_new_frame)
-        rospy.Subscriber("center", Float32MultiArray, self.handle_interactive_marker)
-        rospy.Subscriber("radius", Float32, self.handle_slider)
+        rospy.Subscriber("/sel_data/cur_frame", PointCloud2, self.handle_new_frame)
+        rospy.Subscriber("/sel_data/center", Float32MultiArray, self.handle_interactive_marker)
+        rospy.Subscriber("/sel_data/radius", Float32, self.handle_slider)
         rospy.spin()
 
     def handle_interactive_marker(self, point):
         # Gets point which is the new center of the pointcloud
-        self.CENTER = np.array(point.data)
+        self.center = np.array(point.data)
         self.highlight()
 
     def handle_slider(self, radius):
@@ -62,16 +56,19 @@ class Pc:
         self.RADIUS = radius.data
         self.highlight()
 
-    def handle_new_frame(self, new_pointcloud):
-        self.points = new_pointcloud
+    def handle_new_frame(self, new_pointcloud: PointCloud2):
+        self.pc2_msg = new_pointcloud
         self.highlight()
 
 
 def main():
-    default_radius = float(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('radius', type=float)
+
+    args = parser.parse_args(rospy.myargv(sys.argv[1:]))
 
     rospy.init_node("highlighter")
-    my_pointcloud = Pc("camera_depth_optical_frame", default_radius=default_radius)
+    my_pointcloud = Highlighter("camera_depth_optical_frame", default_radius=args.radius)
     my_pointcloud.run()
 
 
