@@ -30,8 +30,8 @@ class TrajectoryPlaybackGUI(QWidget):
         self.bag_msgs = []
         for topic, msg, t in bag.read_messages(topics=['/camera/depth/color/points']):
             self.bag_msgs.append(msg)
-            break
         bag.close()
+        print("Finished Reading Bag")
 
         # Radius Label
         self.label = QLabel('0', self)
@@ -90,7 +90,7 @@ class IM:
 
     # Referenced from https://github.com/ros-visualization/visualization_tutorials/blob/indigo-devel
     # /interactive_marker_tutorials/scripts/basic_controls.py
-    def setup_im(self):
+    def setup_and_run_im(self):
         # create an interactive marker server on the topic namespace simple_marker
         server = InteractiveMarkerServer("interactive_marker")
 
@@ -101,7 +101,7 @@ class IM:
 
         # create a grey box marker
         box_marker = Marker()
-        box_marker.type = Marker.CUBE
+        box_marker.type = Marker.SPHERE
         box_marker.scale.x = 0.15
         box_marker.scale.y = 0.15
         box_marker.scale.z = 0.15
@@ -165,16 +165,13 @@ class Highlighter:
 
         # Set default values
         self.center = np.array([0, 0, 0])
-        self.RADIUS = default_radius
-
-        # Highlight the starting area
-        self.highlight()
+        self.radius = default_radius
 
     def highlight(self):
         t0 = time.perf_counter()
         points = np.array(list(sensor_msgs.point_cloud2.read_points(self.pc2_msg)))[:, :3]
         dist = np.linalg.norm(points - self.center, axis=-1)
-        sel_indices = np.argwhere(dist < self.RADIUS).squeeze(1)
+        sel_indices = np.argwhere(dist < self.radius).squeeze(1)
         sel_pc = points[sel_indices]
         print("Highlight() Runtime:", time.perf_counter() - t0)
 
@@ -186,14 +183,14 @@ class Highlighter:
         rospy.Subscriber("/sel_data/center", Float32MultiArray, self.handle_interactive_marker)
         rospy.Subscriber("/sel_data/radius", Float32, self.handle_slider)
 
-    def handle_interactive_marker(self, point):
+    def handle_interactive_marker(self, new_center):
         # Gets point which is the new center of the point cloud
-        self.center = np.array(point.data)
+        self.center = np.array(new_center.data)
         self.highlight()
 
-    def handle_slider(self, radius):
+    def handle_slider(self, new_radius):
         # Gets the radius which is the range to select the points
-        self.RADIUS = radius.data
+        self.radius = new_radius.data
         self.highlight()
 
     def handle_new_frame(self, new_point_cloud: PointCloud2):
@@ -211,7 +208,7 @@ if __name__ == "__main__":
     args = parser.parse_args(rospy.myargv(sys.argv[1:]))
 
     marker = IM("camera_depth_optical_frame")
-    marker.setup_im()
+    marker.setup_and_run_im()
 
     sel_point_cloud = Highlighter("camera_depth_optical_frame", default_radius=args.radius)
     sel_point_cloud.run()
