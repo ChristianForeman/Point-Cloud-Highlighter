@@ -3,15 +3,13 @@
     <node pkg="rviz" type="rviz" name="rviz" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="camera_tf_offset" args="0 0 0 0 0 1.5707 camera_depth_optical_frame camera_rviz"/>
 
-    <!-- Python Scripts-->
-    <!--
+    <!-- Python Script-->
+
     <arg name="default_radius"/>
     <arg name="bag_filename"/>
-    <node name="highlighter_node" pkg="plant_time" type="highlighter.py" output="screen" args="$(arg default_radius)"/>
-    <node name="interactive_marker_node" pkg="plant_time" type="interactive_marker.py"/>
-    <node name="radius_selector_node" pkg="plant_time" type="radius_panel.py" output="screen" args="$(arg default_radius) $(arg bag_filename)"/>
-    -->
-    <!-- roslaunch launch/offline_fitting.launch default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/src/plant_test2.bag -->
+    <node name="pc_selector" pkg="plant_time" type="pc_selector.py" output="screen" args="$(arg default_radius) $(arg bag_filename)"/>
+
+    <!-- roslaunch launch/offline_fitting.launch default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/plant_test2.bag -->
 
 </launch>
 
