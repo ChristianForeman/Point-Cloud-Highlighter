@@ -9,6 +9,7 @@ from arc_utilities.ros_helpers import get_connected_publisher
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2
 import argparse
+import sys
 
 
 class Pc:
@@ -67,14 +68,10 @@ class Pc:
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('default_radius')
-    args = parser.parse_args()
-
-    # print(args.default_radius)
+    default_radius = float(sys.argv[1])
 
     rospy.init_node("highlighter")
-    my_pointcloud = Pc("camera_depth_optical_frame", 0.33)#float(args.default_radius))
+    my_pointcloud = Pc("camera_depth_optical_frame", default_radius=default_radius)
     my_pointcloud.run()
 
 
