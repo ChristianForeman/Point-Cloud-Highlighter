@@ -15,6 +15,7 @@ import time
 import rospy
 import sensor_msgs.msg
 import sensor_msgs.point_cloud2
+from arc_utilities.ros_helpers import get_connected_publisher
 
 
 class TrajectoryPlaybackGUI(QWidget):
@@ -99,25 +100,6 @@ class IM:
         int_marker.header.frame_id = self.my_frame
         int_marker.name = "interactive_marker"
 
-        # create a grey box marker
-        box_marker = Marker()
-        box_marker.type = Marker.SPHERE
-        box_marker.scale.x = 0.15
-        box_marker.scale.y = 0.15
-        box_marker.scale.z = 0.15
-        box_marker.color.r = 0.0
-        box_marker.color.g = 0.5
-        box_marker.color.b = 0.5
-        box_marker.color.a = 1.0
-
-        # create a non-interactive control which contains the box
-        box_control = InteractiveMarkerControl()
-        box_control.always_visible = True
-        box_control.markers.append(box_marker)
-
-        # add the control to the interactive marker
-        int_marker.controls.append(box_control)
-
         # create a control which will move the box
         # this control does not contain any markers,
         # which will cause RViz to insert two arrows
@@ -158,7 +140,7 @@ class IM:
 
 class Highlighter:
     def __init__(self, frame, default_radius):
-        self.my_frame = frame
+        self.frame_id = frame
 
         self.sel_pub = rospy.Publisher("/selected_pc", PointCloud2, queue_size=10)
         self.pc2_msg = PointCloud2()
@@ -166,6 +148,26 @@ class Highlighter:
         # Set default values
         self.center = np.array([0, 0, 0])
         self.radius = default_radius
+
+        # Sphere for visualization
+        self.sphere_pub = get_connected_publisher("/sel_data/sel_sphere", Marker, queue_size=10)
+
+        self.sphere_marker = Marker()
+        self.sphere_marker.header.frame_id = self.frame_id
+        self.sphere_marker.header.stamp = rospy.Time.now()
+        self.sphere_marker.type = Marker.SPHERE
+        self.sphere_marker.pose.position.x = 0
+        self.sphere_marker.pose.position.y = 0
+        self.sphere_marker.pose.position.z = 0
+        self.sphere_marker.scale.x = self.radius * 2
+        self.sphere_marker.scale.y = self.radius * 2
+        self.sphere_marker.scale.z = self.radius * 2
+        self.sphere_marker.color.r = 1.0
+        self.sphere_marker.color.g = 1.0
+        self.sphere_marker.color.b = 0.0
+        self.sphere_marker.color.a = 0.3
+
+        self.sphere_pub.publish(self.sphere_marker)
 
     def highlight(self):
         t0 = time.perf_counter()
@@ -175,22 +177,33 @@ class Highlighter:
         sel_pc = points[sel_indices]
         print("Highlight() Runtime:", time.perf_counter() - t0)
 
-        msg = utils.points_to_pc2_msg(sel_pc, self.my_frame)
+        msg = utils.points_to_pc2_msg(sel_pc, self.frame_id)
         self.sel_pub.publish(msg)
 
     def run(self):
         rospy.Subscriber("/sel_data/cur_frame", PointCloud2, self.handle_new_frame)
-        rospy.Subscriber("/sel_data/center", Float32MultiArray, self.handle_interactive_marker)
-        rospy.Subscriber("/sel_data/radius", Float32, self.handle_slider)
+        rospy.Subscriber("/sel_data/center", Float32MultiArray, self.handle_new_center)
+        rospy.Subscriber("/sel_data/radius", Float32, self.handle_new_radius)
 
-    def handle_interactive_marker(self, new_center):
+    def handle_new_center(self, new_center):
         # Gets point which is the new center of the point cloud
         self.center = np.array(new_center.data)
+        self.sphere_marker.pose.position.x = self.center[0]
+        self.sphere_marker.pose.position.y = self.center[1]
+        self.sphere_marker.pose.position.z = self.center[2]
+        self.sphere_pub.publish(self.sphere_marker)
+
         self.highlight()
 
-    def handle_slider(self, new_radius):
+    def handle_new_radius(self, new_radius):
         # Gets the radius which is the range to select the points
         self.radius = new_radius.data
+
+        self.sphere_marker.scale.x = self.radius * 2
+        self.sphere_marker.scale.y = self.radius * 2
+        self.sphere_marker.scale.z = self.radius * 2
+        self.sphere_pub.publish(self.sphere_marker)
+
         self.highlight()
 
     def handle_new_frame(self, new_point_cloud: PointCloud2):
