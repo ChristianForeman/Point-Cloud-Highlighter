@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *

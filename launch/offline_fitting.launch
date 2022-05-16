@@ -3,4 +3,9 @@
     <node pkg="rviz" type="rviz" name="rviz" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="camera_tf_offset" args="0 0 0 0 0 1.5707 camera_depth_optical_frame camera_rviz"/>
 
+    <!-- Python Scripts-->
+    <node name="highlighter_node" pkg="plant_time" type="highlighter.py" args="0.33"/>
+    <node name="interactive_marker_node" pkg="plant_time" type="interactive_marker.py"/>
+    <node name="radius_selector_node" pkg="plant_time" type="radius_panel.py"/>
+
 </launch>

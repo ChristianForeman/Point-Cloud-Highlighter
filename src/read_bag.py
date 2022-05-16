@@ -13,8 +13,6 @@ def main():
     parser.add_argument('filename')
     args = parser.parse_args()
 
-    print(args.filename)
-
     bag = rosbag.Bag(args.filename)
     bag_msgs = []
     for topic, msg, t in bag.read_messages(topics=['/camera/depth/color/points']):
