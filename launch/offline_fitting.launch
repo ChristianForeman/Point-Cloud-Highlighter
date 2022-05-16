@@ -5,8 +5,12 @@
 
     <!-- Python Scripts-->
     <arg name="default_radius"/>
+    <arg name="bag_filename"/>
     <node name="highlighter_node" pkg="plant_time" type="highlighter.py" output="screen" args="$(arg default_radius)"/>
     <node name="interactive_marker_node" pkg="plant_time" type="interactive_marker.py"/>
-    <node name="radius_selector_node" pkg="plant_time" type="radius_panel.py"/>
+    <node name="radius_selector_node" pkg="plant_time" type="radius_panel.py" output="screen" args="$(arg default_radius) $(arg bag_filename)"/>
+
+    <!-- roslaunch launch/offline_fitting.launch default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/src/plant_test2.bag -->
 
 </launch>
+
