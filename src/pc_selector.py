@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import pathlib
+from threading import Thread
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -57,7 +58,7 @@ class TrajectoryPlaybackGUI(QWidget):
 
         # Frame slider
         self.frame_slider = QSlider(Qt.Horizontal)
-        self.frame_slider.setRange(0, len(self.bag_msgs))
+        self.frame_slider.setRange(0, len(self.bag_msgs) - 1)
         self.frame_slider.setValue(0)
         self.frame_slider.valueChanged.connect(self.frame_change)
         self.layout.addWidget(self.frame_slider)
@@ -65,13 +66,28 @@ class TrajectoryPlaybackGUI(QWidget):
         # Publish the default point cloud (frame 0)
         self.frame_pub.publish(self.bag_msgs[0])
 
+        self.frame_idx = 0
+
+        # This thread is used for the case where the user unselects the view of the entire frame, and then reselects it
+        # The thread periodically publishes the frame, so it reappears without needing to change the selected frame.
+        self.pc_pub_thread = Thread(target=self.pc_pub_worker)
+        # self.pc_pub_thread.start()  # Uncomment this line if you want rviz to constantly publish the frame (slows
+        # things down)
+
     # Callback for slider change
     def radius_change(self):
         self.radius_pub.publish(self.rad_slider.value() / 100.0)
 
     # Callback for slider change
     def frame_change(self):
-        self.frame_pub.publish(self.bag_msgs[self.frame_slider.value()])
+        self.frame_idx = self.frame_slider.value()
+        self.frame_pub.publish(self.bag_msgs[self.frame_idx])
+
+    # TODO: This thread slows things down quite a bit, but ideally shouldn't matter when running realtime
+    def pc_pub_worker(self):
+        while True:
+            self.frame_pub.publish(self.bag_msgs[self.frame_idx])
+            rospy.sleep(1)
 
 
 # Interactive marker class
@@ -150,7 +166,7 @@ class Highlighter:
         self.radius = default_radius
 
         # Sphere for visualization
-        self.sphere_pub = get_connected_publisher("/sel_data/sel_sphere", Marker, queue_size=10)
+        self.sphere_pub = rospy.Publisher("/sel_data/sel_sphere", Marker, queue_size=10)
 
         self.sphere_marker = Marker()
         self.sphere_marker.header.frame_id = self.frame_id
@@ -170,12 +186,12 @@ class Highlighter:
         self.sphere_pub.publish(self.sphere_marker)
 
     def highlight(self):
-        t0 = time.perf_counter()
-        points = np.array(list(sensor_msgs.point_cloud2.read_points(self.pc2_msg)))[:, :3]
-        dist = np.linalg.norm(points - self.center, axis=-1)
+        # t0 = time.perf_counter()
+        points = np.array(list(sensor_msgs.point_cloud2.read_points(self.pc2_msg)))
+        dist = np.linalg.norm(points[:, :3] - self.center, axis=-1)  # indices 0 to 3 is xyz, the 4th val is rgb
         sel_indices = np.argwhere(dist < self.radius).squeeze(1)
         sel_pc = points[sel_indices]
-        print("Highlight() Runtime:", time.perf_counter() - t0)
+        # print("Highlight() Runtime:", time.perf_counter() - t0)
 
         msg = utils.points_to_pc2_msg(sel_pc, self.frame_id)
         self.sel_pub.publish(msg)

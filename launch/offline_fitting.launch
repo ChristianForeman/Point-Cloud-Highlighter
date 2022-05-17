@@ -5,9 +5,9 @@
 
     <!-- Python Script-->
 
-    <arg name="default_radius"/>
+    <!--<arg name="default_radius"/>
     <arg name="bag_filename"/>
-    <node name="pc_selector" pkg="plant_time" type="pc_selector.py" output="screen" args="$(arg default_radius) $(arg bag_filename)"/>
+    <node name="pc_selector" pkg="plant_time" type="pc_selector.py" output="screen" args="$(arg default_radius) $(arg bag_filename)"/>-->
     <!-- roslaunch launch/offline_fitting.launch default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/plant_test2.bag -->
 
 </launch>
