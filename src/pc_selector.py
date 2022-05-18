@@ -32,6 +32,7 @@ class TrajectoryPlaybackGUI(QWidget):
         self.bag_msgs = []
         for topic, msg, t in bag.read_messages(topics=['/camera/depth/color/points']):
             self.bag_msgs.append(msg)
+            break
         bag.close()
         print("Finished Reading Bag")
 
@@ -63,6 +64,12 @@ class TrajectoryPlaybackGUI(QWidget):
         self.frame_slider.valueChanged.connect(self.frame_change)
         self.layout.addWidget(self.frame_slider)
 
+        self.frameNum = QLabel('0', self)
+        self.frameNum.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.frameNum.setMinimumWidth(80)
+
+        self.layout.addWidget(self.frameNum)
+
         # Publish the default point cloud (frame 0)
         self.frame_pub.publish(self.bag_msgs[0])
 
@@ -82,28 +89,100 @@ class TrajectoryPlaybackGUI(QWidget):
     def frame_change(self):
         self.frame_idx = self.frame_slider.value()
         self.frame_pub.publish(self.bag_msgs[self.frame_idx])
+        self.frameNum.setText(str(self.frame_idx))
 
-    # TODO: This thread slows things down quite a bit, but ideally shouldn't matter when running realtime
+    # Note: This thread slows things down quite a bit, but ideally shouldn't matter when running realtime
     def pc_pub_worker(self):
         while True:
             self.frame_pub.publish(self.bag_msgs[self.frame_idx])
             rospy.sleep(1)
 
 
-# Interactive marker class
-class IM:
-    def __init__(self, frame):
-        self.center_pub = rospy.Publisher("/sel_data/center", Float32MultiArray, queue_size=10)
-        self.my_frame = frame
+class Highlighter:
+    def __init__(self, frame, default_radius):
+        self.frame_id = frame
+
+        self.sel_pub = rospy.Publisher("/selected_pc", PointCloud2, queue_size=10)
+        self.points = None
+
+        # Set default values
+        self.center = np.array([0, 0, 0])
+        self.radius = default_radius
+
+        # Sphere for visualization
+        self.sphere_pub = rospy.Publisher("/sel_data/sel_sphere", Marker, queue_size=10)
+
+        self.sphere_marker = Marker()
+        self.sphere_marker.header.frame_id = self.frame_id
+        self.sphere_marker.header.stamp = rospy.Time.now()
+        self.sphere_marker.type = Marker.SPHERE
+        self.sphere_marker.pose.position.x = 0
+        self.sphere_marker.pose.position.y = 0
+        self.sphere_marker.pose.position.z = 0
+        self.sphere_marker.scale.x = self.radius * 2
+        self.sphere_marker.scale.y = self.radius * 2
+        self.sphere_marker.scale.z = self.radius * 2
+        self.sphere_marker.color.r = 0.0
+        self.sphere_marker.color.g = 0.5
+        self.sphere_marker.color.b = 0.5
+        self.sphere_marker.color.a = 0.3
+
+        self.sphere_pub.publish(self.sphere_marker)
+
+        self.setup_and_run_im()
+
+        self.frame_counter = 0
 
     # When the im is moved, update the center and notify the highlighter ros node
     def processFeedback(self, feedback):
-        p = feedback.pose.position
+        self.frame_counter += 1
 
-        new_center = Float32MultiArray()
-        new_center.data = [p.x, p.y, p.z]
+        if self.frame_counter % 3 == 0:
+            self.frame_counter = 0
 
-        self.center_pub.publish(new_center)
+            p = feedback.pose.position
+            new_center = Float32MultiArray()
+            new_center.data = [p.x, p.y, p.z]
+
+            self.handle_new_center(new_center)
+
+    def highlight(self):
+        dist = np.linalg.norm(self.points[:, :3] - self.center, axis=-1)  # indices 0 to 3 is xyz, the 4th val is rgb
+        sel_indices = np.argwhere(dist < self.radius).squeeze(1)
+        sel_pc = self.points[sel_indices]
+
+        msg = utils.points_to_pc2_msg(sel_pc, self.frame_id)
+        self.sel_pub.publish(msg)
+
+    def run(self):
+        # FIXME: no need for ROS anymore here
+        rospy.Subscriber("/sel_data/cur_frame", PointCloud2, self.handle_new_frame)
+        rospy.Subscriber("/sel_data/radius", Float32, self.handle_new_radius)
+
+    def handle_new_center(self, new_center):
+        # Gets point which is the new center of the point cloud
+        self.center = np.array(new_center.data)
+        self.sphere_marker.pose.position.x = self.center[0]
+        self.sphere_marker.pose.position.y = self.center[1]
+        self.sphere_marker.pose.position.z = self.center[2]
+        self.sphere_pub.publish(self.sphere_marker)
+
+        self.highlight()
+
+    def handle_new_radius(self, new_radius):
+        # Gets the radius which is the range to select the points
+        self.radius = new_radius.data
+
+        self.sphere_marker.scale.x = self.radius * 2
+        self.sphere_marker.scale.y = self.radius * 2
+        self.sphere_marker.scale.z = self.radius * 2
+        self.sphere_pub.publish(self.sphere_marker)
+
+        self.highlight()
+
+    def handle_new_frame(self, new_point_cloud: PointCloud2):
+        self.points = np.array(list(sensor_msgs.point_cloud2.read_points(new_point_cloud)))
+        self.highlight()
 
     # Referenced from https://github.com/ros-visualization/visualization_tutorials/blob/indigo-devel
     # /interactive_marker_tutorials/scripts/basic_controls.py
@@ -113,7 +192,7 @@ class IM:
 
         # create an interactive marker for our server
         int_marker = InteractiveMarker()
-        int_marker.header.frame_id = self.my_frame
+        int_marker.header.frame_id = self.frame_id
         int_marker.name = "interactive_marker"
 
         # create a control which will move the box
@@ -154,79 +233,6 @@ class IM:
         server.applyChanges()
 
 
-class Highlighter:
-    def __init__(self, frame, default_radius):
-        self.frame_id = frame
-
-        self.sel_pub = rospy.Publisher("/selected_pc", PointCloud2, queue_size=10)
-        self.pc2_msg = PointCloud2()
-
-        # Set default values
-        self.center = np.array([0, 0, 0])
-        self.radius = default_radius
-
-        # Sphere for visualization
-        self.sphere_pub = rospy.Publisher("/sel_data/sel_sphere", Marker, queue_size=10)
-
-        self.sphere_marker = Marker()
-        self.sphere_marker.header.frame_id = self.frame_id
-        self.sphere_marker.header.stamp = rospy.Time.now()
-        self.sphere_marker.type = Marker.SPHERE
-        self.sphere_marker.pose.position.x = 0
-        self.sphere_marker.pose.position.y = 0
-        self.sphere_marker.pose.position.z = 0
-        self.sphere_marker.scale.x = self.radius * 2
-        self.sphere_marker.scale.y = self.radius * 2
-        self.sphere_marker.scale.z = self.radius * 2
-        self.sphere_marker.color.r = 0.0
-        self.sphere_marker.color.g = 0.5
-        self.sphere_marker.color.b = 0.5
-        self.sphere_marker.color.a = 0.3
-
-        self.sphere_pub.publish(self.sphere_marker)
-
-    def highlight(self):
-        # t0 = time.perf_counter()
-        points = np.array(list(sensor_msgs.point_cloud2.read_points(self.pc2_msg)))
-        dist = np.linalg.norm(points[:, :3] - self.center, axis=-1)  # indices 0 to 3 is xyz, the 4th val is rgb
-        sel_indices = np.argwhere(dist < self.radius).squeeze(1)
-        sel_pc = points[sel_indices]
-        # print("Highlight() Runtime:", time.perf_counter() - t0)
-
-        msg = utils.points_to_pc2_msg(sel_pc, self.frame_id)
-        self.sel_pub.publish(msg)
-
-    def run(self):
-        rospy.Subscriber("/sel_data/cur_frame", PointCloud2, self.handle_new_frame)
-        rospy.Subscriber("/sel_data/center", Float32MultiArray, self.handle_new_center)
-        rospy.Subscriber("/sel_data/radius", Float32, self.handle_new_radius)
-
-    def handle_new_center(self, new_center):
-        # Gets point which is the new center of the point cloud
-        self.center = np.array(new_center.data)
-        self.sphere_marker.pose.position.x = self.center[0]
-        self.sphere_marker.pose.position.y = self.center[1]
-        self.sphere_marker.pose.position.z = self.center[2]
-        self.sphere_pub.publish(self.sphere_marker)
-
-        self.highlight()
-
-    def handle_new_radius(self, new_radius):
-        # Gets the radius which is the range to select the points
-        self.radius = new_radius.data
-
-        self.sphere_marker.scale.x = self.radius * 2
-        self.sphere_marker.scale.y = self.radius * 2
-        self.sphere_marker.scale.z = self.radius * 2
-        self.sphere_pub.publish(self.sphere_marker)
-
-        self.highlight()
-
-    def handle_new_frame(self, new_point_cloud: PointCloud2):
-        self.pc2_msg = new_point_cloud
-        self.highlight()
-
-
 def main():
     rospy.init_node("pc_selector")
 
@@ -235,9 +241,6 @@ def main():
     parser.add_argument('bag_filename', type=pathlib.Path)
 
     args = parser.parse_args(rospy.myargv(sys.argv[1:]))
-
-    marker = IM("camera_depth_optical_frame")
-    marker.setup_and_run_im()
 
     sel_point_cloud = Highlighter("camera_depth_optical_frame", default_radius=args.radius)
     sel_point_cloud.run()
