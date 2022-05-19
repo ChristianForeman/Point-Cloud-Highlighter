@@ -1,14 +1,18 @@
 <launch>
+    <!-- Example command to run the roslaunch file-->
+    <!--roslaunch launch/offline_fitting.launch frame_id:=camera_depth_optical_frame default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/plant_test2.bag -->
 
     <node pkg="rviz" type="rviz" name="rviz" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="camera_tf_offset" args="0 0 0 0 0 1.5707 camera_depth_optical_frame camera_rviz"/>
 
-    <!-- Python Script-->
-
-    <!--<arg name="default_radius"/>
-    <arg name="bag_filename"/>
-    <node name="pc_selector" pkg="plant_time" type="pc_selector.py" output="screen" args="$(arg default_radius) $(arg bag_filename)"/>-->
-    <!-- roslaunch launch/offline_fitting.launch default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/plant_test2.bag -->
+    <!-- Uncomment Below to run all necessary code with the command above -->
+    <!--
+    <arg name="frame_id"/>
+    <arg name="default_radius"/>
+    <arg name="bag_filepath"/>
+    <node name="pc_selector" pkg="plant_time" type="pc_selector.py"
+          output="screen" args="$(arg frame_id) $(arg default_radius) $(arg bag_filepath)"/>
+    -->
 
 </launch>
 
