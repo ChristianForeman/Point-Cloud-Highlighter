@@ -1,19 +1,23 @@
 #!/usr/bin/env python
-# FIXME: Simplify imports, dont do import *, simplify utils.py
 import argparse
 import pathlib
+import sys
 
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QApplication
+
+from interactive_markers.interactive_marker_server import InteractiveMarkerServer
+from visualization_msgs.msg import Marker, InteractiveMarkerControl, InteractiveMarker
+
 from sensor_msgs.msg import PointCloud2
-import rosbag
-from interactive_markers.interactive_marker_server import *
-from visualization_msgs.msg import *
-import utils
-import numpy as np
-import rospy
 import sensor_msgs.msg
 import sensor_msgs.point_cloud2
+
+import rosbag
+import numpy as np
+import rospy
+
+import helpers
 
 
 class TrajectoryPlaybackGUI(QWidget):
@@ -29,7 +33,6 @@ class TrajectoryPlaybackGUI(QWidget):
         self.frame_pub = rospy.Publisher("/sel_data/cur_frame", PointCloud2, queue_size=10)
         self.sel_pub = rospy.Publisher("/sel_data/selected_pc", PointCloud2, queue_size=10)
 
-        # TODO: Check if there are faster ways to read in a bag
         # Read in the bag
         bag = rosbag.Bag(filename.as_posix())
         self.bag_msgs = []
@@ -104,6 +107,7 @@ class TrajectoryPlaybackGUI(QWidget):
 
         self.sphere_pub.publish(self.sphere_marker)
 
+    # This adds the arrows in rviz which control the center of the selected point cloud
     def setup_interactive_marker(self):
         # create an interactive marker server on the topic namespace simple_marker
         server = InteractiveMarkerServer("interactive_marker")
@@ -200,7 +204,7 @@ class TrajectoryPlaybackGUI(QWidget):
         sel_pc = self.points[sel_indices]
 
         # Convert numpy array back to a point cloud message and publish
-        msg = utils.points_to_pc2_msg(sel_pc, self.frame_id)
+        msg = helpers.points_to_pc2_msg(sel_pc, self.frame_id)
         self.sel_pub.publish(msg)
 
 
