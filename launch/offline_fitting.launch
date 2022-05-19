@@ -1,6 +1,6 @@
 <launch>
     <!-- Example command to run the roslaunch file-->
-    <!--roslaunch launch/offline_fitting.launch frame_id:=camera_depth_optical_frame default_radius:=0.33 bag_filename:=/home/christianforeman/catkin_ws/src/plant_time/plant_test2.bag -->
+    <!-- roslaunch launch/offline_fitting.launch frame_id:=camera_depth_optical_frame default_radius:=0.33 bag_filepath:=/home/christianforeman/catkin_ws/src/plant_time/plant_test2.bag -->
 
     <node pkg="rviz" type="rviz" name="rviz" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="camera_tf_offset" args="0 0 0 0 0 1.5707 camera_depth_optical_frame camera_rviz"/>
