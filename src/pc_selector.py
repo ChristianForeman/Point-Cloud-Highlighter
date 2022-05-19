@@ -54,7 +54,7 @@ class TrajectoryPlaybackGUI(QWidget):
 
         # frame_idx in the index of the bag we are currently viewing
         self.frame_idx = 0
-        # Publish the 0th frame of the bag to the pointcloud
+        # Publish the 0th frame of the bag to the point cloud
         self.frame_pub.publish(self.bag_msgs[0])
 
         # Set up the UI
@@ -91,6 +91,7 @@ class TrajectoryPlaybackGUI(QWidget):
         # Select region around default area
         self.select_pc()
 
+    # Sets up the spherical marker which has all selected points in it
     def setup_sphere_marker(self):
         # Initialize the parameters of the sphere which shows highlighted region
         self.sphere_marker.header.frame_id = self.frame_id
