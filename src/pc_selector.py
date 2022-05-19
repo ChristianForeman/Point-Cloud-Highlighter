@@ -88,6 +88,9 @@ class TrajectoryPlaybackGUI(QWidget):
         self.frame_slider.valueChanged.connect(self.frame_change)
         self.layout.addWidget(self.frame_slider)
 
+        # Select region around default area
+        self.select_pc()
+
     def setup_sphere_marker(self):
         # Initialize the parameters of the sphere which shows highlighted region
         self.sphere_marker.header.frame_id = self.frame_id
