@@ -13,7 +13,7 @@ python src/pc_selector.py <frame_in_rviz> <default_radius> <bag_filepath>
 or
 ```
 # Make sure to uncomment the python part of the launch file in offline_fitting.launch
-roslaunch launch/offline_fitting.launch frame_id:=<frame_in_rviz> default_radius:=<default_radius bag_filepath:=<bag_filepath>
+roslaunch launch/offline_fitting.launch frame_id:=<frame_in_rviz> default_radius:=<default_radius> bag_filepath:=<bag_filepath>
 ```
 
 ## Example Output
